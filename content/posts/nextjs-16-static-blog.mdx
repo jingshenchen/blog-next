@@ -1,0 +1,61 @@
+---
+title: 用 Next.js 16 搭建静态博客的取舍
+description: 记录内容层与渲染层分离的做法，以及 Turbopack 下 MDX 插件的一个坑。
+date: 2026-08-20
+tags: [Next.js, MDX, 架构]
+---
+
+搭博客最容易犯的错，是把「读文章」这件事直接写进页面组件。一旦以后要多端复用，
+就得把散落在各个 `page.tsx` 里的 `fs.readFileSync` 一个个抠出来。
+
+## 内容层要能独立存在
+
+所以这个站把所有文章读取收敛到 `lib/content.ts`，它只返回纯数据，不含任何 JSX：
+
+```ts
+export type PostMeta = {
+  slug: string;
+  title: string;
+  date: string;
+  tags: string[];
+  readingMinutes: number;
+};
+
+export function getAllPosts(): PostMeta[] {
+  // fs + gray-matter，按日期倒序
+}
+```
+
+页面只消费它。将来要接微信小程序，加一个 route handler 把返回值序列化成 JSON 即可，
+页面一行都不用改。
+
+## Turbopack 下的 MDX 插件
+
+这是实际踩到的坑。Next.js 16 默认用 Turbopack，而官方文档明确写道：
+
+> remark and rehype plugins without serializable options cannot be used yet with
+> Turbopack, because JavaScript functions can't be passed to Rust.
+
+也就是说，**插件不能传导入的函数，必须写字符串名**：
+
+```ts
+const withMDX = createMDX({
+  options: {
+    remarkPlugins: ["remark-frontmatter", "remark-gfm"],
+    rehypePlugins: ["rehype-slug"],
+  },
+});
+```
+
+| 写法 | Webpack | Turbopack |
+| --- | --- | --- |
+| `[remarkGfm]`（导入的函数） | 可用 | 不可用 |
+| `["remark-gfm"]`（字符串） | 可用 | 可用 |
+
+统一用字符串写法，两边都不会出问题。
+
+## frontmatter 需要自己处理
+
+`@next/mdx` 默认不认 frontmatter。顶部那段 YAML 如果不处理，会被当正文渲染出来。
+这里的分工是：`remark-frontmatter` 负责在渲染时剥离它，`gray-matter` 负责在列表页
+解析元数据 —— 后者不编译 MDX，所以列表页构建很快。

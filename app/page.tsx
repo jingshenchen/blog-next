@@ -1,69 +1,121 @@
-import Image from "next/image";
+import Link from "next/link";
+import { getAllPosts, getAllTags } from "@/lib/content";
+import { PostCard, FeaturedPostCard } from "@/components/post-card";
+import { TagPill } from "@/components/tag-pill";
+import { siteConfig } from "@/lib/site";
+import { Container } from "@/components/container";
 
-export default function Home() {
+const RECENT_COUNT = 5;
+
+export default function HomePage() {
+  const posts = getAllPosts();
+  const tags = getAllTags();
+  const [featured, ...rest] = posts;
+  const recent = rest.slice(0, RECENT_COUNT - 1);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <div className="relative overflow-hidden">
+      {/* 顶部装饰光斑，纯装饰不参与交互。宽度跟随视口，避免在窄屏溢出、在宽屏冲淡正文对比度 */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-40 left-1/2 h-[24rem] w-[120%] max-w-[64rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-blue-200/30 via-violet-200/30 to-cyan-200/30 blur-3xl sm:h-[32rem] dark:from-blue-900/20 dark:via-violet-900/20 dark:to-cyan-900/20"
+      />
+
+      <Container className="relative py-16 sm:py-20 lg:py-24">
+        <section>
+          <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl">
+            <span className="bg-gradient-to-r from-zinc-900 via-blue-800 to-violet-800 bg-clip-text text-transparent dark:from-zinc-50 dark:via-blue-200 dark:to-violet-200">
+              {siteConfig.name}
+            </span>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mt-5 max-w-2xl text-lg leading-relaxed text-zinc-600 dark:text-zinc-400">
+            {siteConfig.description}
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+
+          {/* 统计条 */}
+          <dl className="mt-8 flex flex-wrap items-center gap-x-8 gap-y-3">
+            <div className="flex items-baseline gap-2">
+              <dd className="text-2xl font-bold tabular-nums text-zinc-900 dark:text-zinc-50">
+                {posts.length}
+              </dd>
+              <dt className="text-sm text-zinc-600 dark:text-zinc-400">
+                篇文章
+              </dt>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <dd className="text-2xl font-bold tabular-nums text-zinc-900 dark:text-zinc-50">
+                {tags.length}
+              </dd>
+              <dt className="text-sm text-zinc-600 dark:text-zinc-400">
+                个标签
+              </dt>
+            </div>
+            <Link
+              href="/feed.xml"
+              className="group inline-flex items-center gap-1.5 text-sm font-medium text-zinc-600 transition-colors hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400"
+            >
+              <svg
+                className="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden
+              >
+                <circle cx="6.18" cy="17.82" r="2.18" />
+                <path d="M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z" />
+              </svg>
+              RSS
+            </Link>
+          </dl>
+
+          {tags.length > 0 && (
+            <div className="mt-8 flex flex-wrap gap-2">
+              {tags.slice(0, 8).map(({ tag, count }) => (
+                <TagPill key={tag} tag={tag} count={count} size="md" />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {posts.length === 0 ? (
+          <p className="mt-16 rounded-2xl border border-dashed border-zinc-300 p-10 text-center text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
+            还没有文章。在 <code>content/posts/</code> 下新建一个 .mdx
+            文件就会出现在这里。
+          </p>
+        ) : (
+          <>
+            <section className="mt-16">
+              <FeaturedPostCard post={featured} />
+            </section>
+
+            {recent.length > 0 && (
+              <section className="mt-14">
+                <div className="flex items-baseline justify-between">
+                  <h2 className="text-sm font-semibold tracking-widest text-zinc-600 uppercase dark:text-zinc-400">
+                    近期文章
+                  </h2>
+                  {posts.length > RECENT_COUNT && (
+                    <Link
+                      href="/blog"
+                      className="group text-sm font-medium text-zinc-600 transition-colors hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400"
+                    >
+                      全部 {posts.length} 篇
+                      <span className="ml-1 inline-block transition-transform group-hover:translate-x-1">
+                        →
+                      </span>
+                    </Link>
+                  )}
+                </div>
+
+                <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                  {recent.map((post) => (
+                    <PostCard key={post.slug} post={post} />
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
+        )}
+      </Container>
     </div>
   );
 }

@@ -1,0 +1,79 @@
+---
+title: 为多端预留内容层，但不要提前造 API
+description: 一个折中做法：把读取逻辑收敛成纯数据函数，接口等真正需要时再加。
+date: 2026-08-26
+tags: [架构, 小程序]
+---
+
+这个博客现在只有网页端，但将来可能要接微信小程序。常见的两种极端做法都不太好。
+
+## 两种极端
+
+**极端一：什么都不管。** 在每个 `page.tsx` 里直接 `fs.readFileSync` 加 `gray-matter`
+解析。写起来最快，但等到要接小程序，得把散落在十几个文件里的读取逻辑一个个抠出来，
+而且很容易抠漏。
+
+**极端二：现在就上前后端分离。** 单独起一个内容服务，网页端也走 HTTP 调用。
+预留是够彻底了，但个人博客因此多了一个要部署、要监控的进程，
+首屏还平白多一次网络往返。
+
+## 折中：只做抽象，不做接口
+
+真正需要提前定下来的，只有一件事：**读取内容的逻辑必须集中在一个地方，
+并且返回纯数据**。
+
+```ts
+// lib/content.ts —— 不含任何 JSX
+export type PostMeta = {
+  slug: string;
+  title: string;
+  date: string;
+  tags: string[];
+  readingMinutes: number;
+};
+
+export function getAllPosts(): PostMeta[] { /* ... */ }
+export function getPostBySlug(slug: string): PostMeta | null { /* ... */ }
+export function getPostsByTag(tag: string): PostMeta[] { /* ... */ }
+```
+
+两条约束保证它是可复用的：
+
+1. **不含 React / JSX** —— 否则小程序端没法用。
+2. **页面不许直接碰 `fs`** —— 所有读取都经过这一层。
+
+满足这两点之后，将来加小程序接口是纯增量的：
+
+```ts
+// app/api/posts/route.ts —— 将来需要时再建，现在不写
+import { getAllPosts } from "@/lib/content";
+
+export async function GET() {
+  return Response.json(getAllPosts());
+}
+```
+
+页面代码一行都不用改，因为它们本来就调的是同一个 `getAllPosts()`。
+
+## 为什么不现在就把接口写了
+
+因为写了就得维护，而且**没有真实调用方的接口，形状基本一定是错的**。
+小程序端到底需要哪些字段、要不要分页、列表要不要带摘要 —— 这些在真正动手写
+小程序之前都是猜的。猜错了还得改，不如等需求明确。
+
+现在的成本只是「把函数放对位置」，几乎为零；而收益是将来不用做大规模重构。
+这个投入产出比，比提前造一套用不上的接口要好得多。
+
+## 一个额外好处
+
+内容层独立之后，`sitemap.ts`、`robots.ts`、`feed.xml` 这些都能直接复用它：
+
+| 消费方 | 用到的函数 |
+| --- | --- |
+| 文章列表页 | `getAllPosts()` |
+| 标签页 | `getAllTags()` / `getPostsByTag()` |
+| sitemap | `getAllPosts()` + `getAllTags()` |
+| RSS | `getAllPosts()` |
+| 将来的小程序接口 | 同上，不需要新逻辑 |
+
+这些都不是「为小程序做的准备」，而是抽象本身带来的顺带收益。

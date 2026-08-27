@@ -1,0 +1,93 @@
+---
+title: 深色模式为什么会闪一下白屏
+description: useEffect 里切换主题永远来不及，必须用内联同步脚本。
+date: 2026-08-24
+tags: [前端, 用户体验]
+---
+
+深色模式最常见的 bug：刷新页面时先闪一下白色，然后才变暗。原因很简单 —— 时机不对。
+
+## 问题出在哪
+
+如果你在组件里这样写：
+
+```tsx
+useEffect(() => {
+  const stored = localStorage.getItem("theme");
+  if (stored === "dark") {
+    document.documentElement.classList.add("dark");
+  }
+}, []);
+```
+
+`useEffect` 在**水合之后**才执行。而浏览器早在拿到 HTML 时就已经完成首次绘制了。
+所以顺序是：
+
+1. 浏览器绘制浅色页面 ← 用户看到白屏
+2. JS 下载、解析、水合
+3. `useEffect` 加上 `dark` class
+4. 浏览器重绘为深色
+
+中间那一下白，就是第 1 步到第 4 步之间的间隔。
+
+## 解法：在绘制前同步执行
+
+必须让读取 localStorage 和加 class 这件事，发生在浏览器首次绘制**之前**。
+办法是往 `<head>` 里塞一段内联的同步脚本：
+
+```tsx
+const themeInitScript = `
+(function () {
+  try {
+    var stored = localStorage.getItem('theme');
+    var isDark = stored
+      ? stored === 'dark'
+      : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (isDark) document.documentElement.classList.add('dark');
+  } catch (e) {}
+})();
+`;
+
+export default function RootLayout({ children }: LayoutProps<"/">) {
+  return (
+    <html lang="zh-CN" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
+      <body>{children}</body>
+    </html>
+  );
+}
+```
+
+几个细节值得说明：
+
+- **必须内联**，不能是外链 `<script src>`。外链要等网络请求，又晚了。
+- **必须同步**，不能加 `defer` 或 `async`。
+- `try/catch` 是必要的：隐私模式下访问 `localStorage` 可能直接抛错。
+- `suppressHydrationWarning` 加在 `<html>` 上，因为这段脚本会在服务端渲染结果之外
+  修改 `class`，不加 React 会警告。
+
+## 开关组件不要自己判断初始值
+
+既然 class 已经由内联脚本打好了，开关组件就不该再猜一遍，直接读 DOM 现状：
+
+```tsx
+useEffect(() => {
+  setIsDark(document.documentElement.classList.contains("dark"));
+  setMounted(true);
+}, []);
+```
+
+在 `mounted` 为 false 时渲染一个等宽占位，而不是渲染某个默认图标 ——
+否则会出现「页面是深色但图标显示月亮」的短暂错配。
+
+## Tailwind v4 的配合
+
+Tailwind v4 默认的 `dark:` 跟随系统偏好，手动切换不生效。需要改成按 class 判断：
+
+```css
+@custom-variant dark (&:where(.dark, .dark *));
+```
+
+这一行写在 `@import "tailwindcss"` 之后，`dark:` 变体就以 `html.dark` 为准了。

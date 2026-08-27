@@ -1,8 +1,17 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* 深色模式以 html.dark 为准，而不是只跟随系统 —— 这样手动切换才生效 */
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 @theme inline {
@@ -12,15 +21,92 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  scroll-behavior: smooth;
+}
+
+/* 选中文本色 */
+::selection {
+  background-color: rgb(59 130 246 / 0.2);
+}
+
+.dark ::selection {
+  background-color: rgb(139 92 246 / 0.3);
+}
+
+/*
+ * rehype-pretty-code 配了 light/dark 双主题后，会把两套颜色写成
+ * --shiki-light / --shiki-dark 两个 CSS 变量，需要在这里择一生效。
+ */
+code[data-theme*=" "],
+code[data-theme*=" "] span {
+  color: var(--shiki-light);
+  background-color: var(--shiki-light-bg);
+}
+
+.dark code[data-theme*=" "],
+.dark code[data-theme*=" "] span {
+  color: var(--shiki-dark);
+  background-color: var(--shiki-dark-bg);
+}
+
+/* 代码块自身的内边距与滚动交给 pre，避免 prose 的默认样式打架 */
+figure[data-rehype-pretty-code-figure] pre {
+  overflow-x: auto;
+  padding: 1rem 0;
+  line-height: 1.6;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-zinc-200);
+}
+
+.dark figure[data-rehype-pretty-code-figure] pre {
+  border-color: var(--color-zinc-800);
+}
+
+/* 有文件名标签时，让标签和代码块拼成一整块 */
+figure[data-rehype-pretty-code-figure]:has([data-rehype-pretty-code-title]) pre {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-top-width: 0;
+}
+
+figure[data-rehype-pretty-code-figure] code {
+  display: grid;
+  background-color: transparent;
+  font-size: 0.875rem;
+  counter-reset: line;
+}
+
+figure[data-rehype-pretty-code-figure] code > [data-line] {
+  padding: 0 1rem;
+}
+
+/* 代码块文件名标签 */
+figure[data-rehype-pretty-code-figure] [data-rehype-pretty-code-title] {
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.8125rem;
+  background-color: var(--color-zinc-200);
+  color: var(--color-zinc-700);
+}
+
+.dark figure[data-rehype-pretty-code-figure] [data-rehype-pretty-code-title] {
+  background-color: var(--color-zinc-800);
+  color: var(--color-zinc-300);
+}
+
+/* 标题锚点：rehype-autolink-headings 用 wrap 模式包住标题文字，去掉下划线 */
+.prose :where(h2, h3, h4) > a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.prose :where(h2, h3, h4) > a:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--color-zinc-400);
 }
