@@ -28,6 +28,11 @@ body {
   scroll-behavior: smooth;
 }
 
+/* 吸顶 header 会盖住锚点目标，给标题加滚动偏移 */
+h1, h2, h3, h4, h5, h6 {
+  scroll-margin-top: 5rem;
+}
+
 /* 选中文本色 */
 ::selection {
   background-color: rgb(59 130 246 / 0.2);

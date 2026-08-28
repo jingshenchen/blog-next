@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
+import GithubSlugger from "github-slugger";
 
 /**
  * 内容层：全站唯一读取文章的入口。
@@ -127,6 +128,87 @@ export function getPostBySlug(slug: string): PostMeta | null {
     return null;
   }
   return meta;
+}
+
+export type Heading = {
+  /** 与正文 <h2>/<h3> 的 id 一致，可直接作为锚点 */
+  id: string;
+  text: string;
+  /** 2 或 3，用于目录缩进 */
+  level: 2 | 3;
+};
+
+/** 去掉行内 Markdown 标记，逼近 rehype-slug 看到的纯文本 */
+function stripInlineMarkdown(text: string): string {
+  return text
+    .replace(/`([^`]*)`/g, "$1") // 行内代码
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1") // 链接与图片，保留文字
+    .replace(/(\*\*|__)(.*?)\1/g, "$2") // 加粗
+    .replace(/(\*|_)(.*?)\1/g, "$2") // 斜体
+    .replace(/~~(.*?)~~/g, "$1") // 删除线
+    .replace(/\s*\{#[^}]*\}\s*$/, "") // 显式 id 语法
+    .trim();
+}
+
+/**
+ * 提取文章的二三级标题，用于生成目录。
+ *
+ * 锚点 id 必须与正文里 rehype-slug 生成的完全一致，否则点击跳不过去 ——
+ * 所以这里直接复用 rehype-slug 内部用的 github-slugger，而不是自己拼规则。
+ * slugger 实例每篇文章新建一份，重名标题的 -1 / -2 后缀才能对上。
+ *
+ * 只取 h2/h3：h1 是文章标题（由页面渲染，不在正文里），h4 以下放进目录会太碎。
+ */
+export function getPostHeadings(slug: string): Heading[] {
+  const { content } = readPostFile(slug);
+
+  // 先剔除围栏代码块，否则 shell 注释里的 "# foo" 会被当成标题
+  const withoutCodeFences = content.replace(/^```[\s\S]*?^```/gm, "");
+
+  const slugger = new GithubSlugger();
+  const headings: Heading[] = [];
+
+  for (const line of withoutCodeFences.split("\n")) {
+    const match = /^(#{2,3})\s+(.*)$/.exec(line);
+    if (!match) continue;
+
+    const text = stripInlineMarkdown(match[2]);
+    if (!text) continue;
+
+    headings.push({
+      id: slugger.slug(text),
+      text,
+      level: match[1].length as 2 | 3,
+    });
+  }
+
+  return headings;
+}
+
+export type AdjacentPosts = {
+  /** 时间上更早的一篇 */
+  prev: PostMeta | null;
+  /** 时间上更新的一篇 */
+  next: PostMeta | null;
+};
+
+/**
+ * 取某篇文章的相邻文章。
+ *
+ * getAllPosts() 是按日期倒序的（新的在前），所以「更早的一篇」在 index + 1，
+ * 「更新的一篇」在 index - 1。这里只用已有排序，不引入新的数据来源。
+ * 若 slug 不在已发布列表中（例如生产环境下的草稿），两侧都返回 null。
+ */
+export function getAdjacentPosts(slug: string): AdjacentPosts {
+  const posts = getAllPosts();
+  const index = posts.findIndex((post) => post.slug === slug);
+  if (index === -1) {
+    return { prev: null, next: null };
+  }
+  return {
+    prev: posts[index + 1] ?? null,
+    next: posts[index - 1] ?? null,
+  };
 }
 
 export type TagCount = { tag: string; count: number };

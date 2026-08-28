@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { siteConfig } from "@/lib/site";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { MobileNav } from "@/components/mobile-nav";
 import { Container } from "@/components/container";
 
 export function SiteHeader() {
@@ -18,7 +19,8 @@ export function SiteHeader() {
         </Link>
 
         <div className="flex items-center gap-1">
-          <nav aria-label="主导航">
+          {/* 桌面端：平铺导航。窄屏交给 MobileNav，4 个导航项 + 主题开关在 375px 上会挤爆 */}
+          <nav aria-label="主导航" className="hidden md:block">
             <ul className="flex items-center gap-0.5">
               {siteConfig.nav.map((item) => (
                 <li key={item.href}>
@@ -33,8 +35,9 @@ export function SiteHeader() {
             </ul>
           </nav>
 
-          <div className="mx-1 h-5 w-px bg-zinc-200 dark:bg-zinc-800" />
+          <div className="mx-1 hidden h-5 w-px bg-zinc-200 md:block dark:bg-zinc-800" />
           <ThemeToggle />
+          <MobileNav items={siteConfig.nav} />
         </div>
       </Container>
     </header>
