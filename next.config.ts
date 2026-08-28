@@ -1,7 +1,19 @@
 import type { NextConfig } from "next";
 import createMDX from "@next/mdx";
 
+/*
+ * GitHub Pages 是项目站点，发布在 https://<user>.github.io/<repo>/ 子路径下，
+ * 因此需要 basePath。本地开发不设这个变量，站点仍在根路径，避免每次都要敲子路径；
+ * CI 里由 workflow 注入 /blog-next。
+ */
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
 const nextConfig: NextConfig = {
+  // GitHub Pages 只能托管静态资源，构建产物输出到 out/
+  output: "export",
+  basePath,
+  // next/image 的默认 loader 需要服务端，静态导出下必须关掉
+  images: { unoptimized: true },
   // 让 .md / .mdx 也能作为页面与可导入模块参与构建
   pageExtensions: ["js", "jsx", "ts", "tsx", "md", "mdx"],
 };

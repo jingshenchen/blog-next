@@ -2,6 +2,9 @@ import type { MetadataRoute } from "next";
 import { getAllPosts, getAllTags } from "@/lib/content";
 import { siteConfig } from "@/lib/site";
 
+// 站点结构在构建期已确定；static export 下 metadata route 必须显式固化
+export const dynamic = "force-static";
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const posts = getAllPosts();
   const tags = getAllTags();
